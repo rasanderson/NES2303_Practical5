@@ -1,0 +1,538 @@
+---
+title: "Multiple response variables"
+output: learnr::tutorial
+runtime: shiny_prerendered
+---
+
+```{r setup, include=FALSE}
+library(learnr)
+library(mosaic)
+library(vegan)
+library(bio2020)
+dune <- read.csv("www/dune.csv", row.names=1)
+data(dune.env)
+data(varespec)
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+## Introduction
+
+### Where might we have multiple responses?
+All the examples we have looked at so far have only had one response variable, 
+with one or more explanatory variables. However, there can be numerous examples
+where you collect lots of response variables. Examples include:
+
+* plant species x vegetation quadrats
+* gene sequence x isolate number
+* invertebrate species x pitfall traps
+* bacterial operational taxonomic units (OTUs) x sample
+* benthic species x marine samples
+
+These data will normally be recorded as tables, where each column is an
+**attribute**, and each row is a **sample**. Therefore in the above examples,
+the attributes are species, gene sequences and OTUs, whilst the samples are
+quadrats, isolates, pitfall traps etc. Often these tables of data can be quite
+large, for example a typical invertebrate survey can easily record 50 or 100
+species within one family, whilst genetic studies can produce hundreds of
+sequences. Therefore the resulting tables can produce large numbers of columns
+for the attributes, as well as the rows for samples.
+
+```{r why_multivariate}
+question("Why would it be wrong to do lots of linear models, or GLMs, on these
+         types of data?",
+         answer("It would take too long", message = "In R you can automate 
+                analyses so the time taken is not a problem."),
+         answer("There might be more attributes than samples", message = "This
+                might or might not be true, but is not the key issue as it does
+                not affect a linear model or GLM"),
+         answer("The attributes are not independent of each other, and multiple
+                linear models might give misleading p-values", correct = TRUE,
+                message = "Good. The attributes may well be correlated with
+                each other, whilst doing lots of individual statistical tests
+                is likely to result in something being significant eventually
+                since p=0.05 is merely 1 in 20."),
+         allow_retry = TRUE
+         )
+```
+
+### Summarising your data
+When you have lots of response variables, you want to have an easy method to
+summarise your data, to help you interpret them. You might want answers to
+questions such as:
+
+* Which species of plants most frequently co-occur?
+* Which isolates are most similar in terms of their genetic composition?
+* Which bacterial genes are associated with antibiotic resistance?
+* Which quadrats have few species in common?
+
+In the past scientists used simple metrics to try and understand these types of
+datasets. For example, species richness, which is the number of species that
+occur in a sample. However, you can quickly see that you could have two samples
+with the same number of species, but few, or even no species in common. More
+sophisticated techniques calculate **diversity indices** such as Shannon diversity
+and Simpson diversity. These measure both the number of species (or genes, or OTUs)
+and their frequency in the sample. However, again they ignore the **identity**
+of these individual attributes:
+
+* you might have two quadrats with the same Shannon diversity but few species
+in common
+* you might have two isolates with similar Simpson diversity, but little overlap
+in the gene sequences
+
+### Displaying similarities between attributes and samples
+A better approach is to use methods that **summarise the composition** of your
+samples. By composition, we are referring to the number of species, their relative
+abundance, and the taxonomic identity of those present in each sample. Likewise
+if your sample is an isolate with gene frequencies, or OTUs etc. We can then
+measure the **similarity in their composition** to make it easy to compare samples
+or isolates.
+
+This similarity in composition between samples can be measured on a:
+
+* **continuous scale**, so that samples with similar composition are placed
+close together, and very dissimilar samples placed far apart.
+* **categorical scale**, so samples with similar composition are placed into 
+different groups, classes or categories
+
+When we measure composition on a continuous scale it is referred to as **ordination**
+and when we do it on a categorical scale it is known as **classification** or
+**clustering**. The two approaches can be considered complementary.
+
+### What about the explanatory variables?
+These can be used to help you interpret the results of your ordination or
+classification, so that you have a proper biological understanding of what is
+taking place. There are several ways of using explanatory variables. The explanatory
+variables can be incorporated into an ordination: this is known as **constrained ordination**
+. Where the ordination is more descriptive, and does not include explanatory 
+variables, it is called **unconstrained ordination**. (There are not constrained
+equivalents for classification.) We will start with unconstrained ordination
+methods as these are the simplest to introduce.
+
+## Unconstrained ordination
+The first biologists to struggle with multi-attribute data were ecologists, 
+because of the large numbers of species that they collected in many field surveys.
+As a result, some of the methods will refer to **sites** and **species**, but
+please remember that the 'sites' could just as easily be samples, isolates,
+experimental plants etc., whilst the 'species' could be OTUs, gene sequences etc.
+
+### Column and row names
+For all multi-attribute (also known as multivariate) datasets R expects your
+raw data to have row names, as well as column names. These can be alphnumeric,
+but column names must **not** start with a number. If you save your data from
+Excel in .csv (comma separated value) format, the `read.csv()` function will
+assume that the first column contains row names. You will often want to keep
+row and column names fairly short, so you can display them on the summary graphs
+from your analyses. For example, typically species names are no longer than 8-
+letter codes (4 letters genus, 4 letters species).
+
+### Dune dataset
+We are going to analyse some vegetation data from the Netherlands, which is
+considered a 'classic' dataset and is used in quite a wide range of books.
+
+![](images/dunes.jpeg)
+
+This has been stored in a `data.frame` called `dune`: use the exercise box below to
+get a summary of the data. How many attributes (species) are present? How many
+samples (quadrats)? What seems to be a common number in the data?
+
+```{r dune_summary, exercise=TRUE}
+
+```
+```{r dune_summary-solution}
+summary(dune)
+head(dune)
+nrow(dune)
+ncol(dune)
+rownames(dune)
+colnames(dune)
+```
+
+You can see that the column names (attributes) are species, for example "Achimill" is
+*Achillea millefolium* :
+
+![](images/achillea.jpeg)
+The rownames can be numbers, which can be useful for graphical display. The dataset
+contains 20 quadrats from `nrow()` and 30 species from `ncol()`. The values shown
+in the `head()` function is the cover-abundance (measured on a scale of 0 to 10),
+but notice how common the value 0 is in these data. This is quite common, and
+known as a **sparse** dataset.
+
+### The `vegan` package
+We are going to use the `vegan` package for these analyses. It was originally
+developed for vegetation analysis (hence its name), but has since been used in
+a wide range of other disciplines in biology, including landscape analysis,
+molecular biology etc. If looking for information on Google about the package,
+remember to add the word 'multivariate' to your search, otherwise it will
+return rather a lot of recipes for food!
+
+### Different types of unconstrained ordination
+There are several types of unconstrained ordination, and we will restrict
+ourselves to three, that you might encounter in your Stage 3 projects.
+
+* principal components analysis (PCA) - a linear method
+* correspondence analysis (CA) - a unimodal method
+* non-metric multidimensional scaling (NMDS) - ranked similarity method
+
+Linear methods such as PCA assume a relatively constant increase or decrease
+in your attribute across your samples. So if some of your samples had low soil
+pH, and some high pH, the abundance of an individual species might increase or
+decline in roughly a straight line. If the analysis works well, the PCA will
+create new variables that 'capture' most of this change:
+
+![](images/linear.png)
+
+Unimodal methods such as CA assume that the abundance of an attribute can rise
+and fall along the axis. Where data are 'sparse' this can sometimes be more
+realistic for the analysis:
+
+![](images/unimodal.png)
+
+NMDS uses a quite different approach. It ranks the abundance values of your
+attributes (species, OTUs etc) and calculates pairwise similarities. It then
+tries to simplify these sets of similarities between all the original variables
+into 2 new variables for easy visualisation. It can be useful when the original
+data are extremely messy and difficult to interpret by PCA or CA.
+
+## Principal components analysis
+Let's analyse the dune data with PCA. The `vegan` package provides access to many
+advanced multivariate methods. It has the `rda()` function, which when used with
+only a response variable provides PCA, and if used with both response and
+explanatory variables it automatically uses constrained analysis. This can be a 
+little confusing for beginners, so in the `bio2020` I have created a wrapper
+function called `ordi_pca()` to make it clearer when you are using PCA. Remember
+that in both constrained and unconstrained analyses the "response variable" is
+actually your `data.frame` containing lots of variables. The `summary()` function
+on your ordination output produces lots of output (most of which you do not need
+to study), so for this website I'm going to limit amount of output. When you run
+it interactively in RStudio, you'll have to scroll up a bit to see the next few lines.
+
+
+```{r dune_pca, echo=TRUE}
+# Undertake the PCA ordination
+dune_pca <- ordi_pca(dune)
+
+# First part of summary: importance of derived variables
+summary(dune_pca)[["cont"]][["importance"]]
+```
+
+Creating the PCA is very simple. In a PCA you try to "squash" as much of the
+variability in your data into new derived variables, known as **ordination axes**
+where the first axis, **PC1** "captures" as much of the variation as possible.
+The second axis, **PC2** captures as much of the remaining variation etc.
+
+Therefore in the above output, you can see on the line labelled `Proportion Explained`
+that PC1 captures 0.2947 = 29.5% of the variation, whilst PC2 captures 0.2157 = 
+21.6% of the variation. Together, shown in the line labelled `Cumulative Proportion`,
+they jointly capture 0.5105 = 51.1% of the variation. In other words, these two
+new derived axes summarise just over half the variation in your original table of
+30 attributes (species) by 20 samples (quadrats or sites). Other axes are produced,
+but note that they rapidly become less important, with PC3 explaining only 9% etc.,
+so usually you only look at PC1 and PC2.
+
+### Visualising the results
+PC1 and PC2 are created for both the attributes and samples, and the easiest way
+to study them is via two graphs, that should be interpreted together. You can
+display the results using the default `plot()` command, but the graphs are 
+usually very cluttered and difficult to read. The `bio2020` package contains an
+`ordi_plot()` function which is easier to use, and broadly similar to the methods
+you have already used for graphs. However, for best results it should be used
+interactively, with the `ordi_identify()` function that I've written for you. This
+can't be demonstrated on this website, so the graphs here will look a bit cluttered.
+When you practice these exercises for yourself, you can use the `ordi_identify()`
+function to obtain nicer graphs.
+
+The following code displays the species scores and site scores. Remember that
+depending on your experimental data, these might be OTUs and isolates respectively.
+The `ordi_plot()` function by default puts both sites and species on the same
+graph, but this can be difficult to interpret, hence the code below also shows
+you how to display the sites and species separately. You can 'fine-tune' your
+plot, by "piping" the commands into the usual range of `gf_` functions that you
+have already used. This can be useful if you want to set titles, or axis limits.
+Setting axis limits can sometimes make it easier to relate species and samples.
+
+```{r plot_dune, echo=TRUE}
+# Display both on the same plot
+ordi_plot(dune_pca, geom="text")
+
+# Display quadrat PCA scores for axes 1 and 2
+ordi_plot(dune_pca, layers="sites", geom="text") %>% 
+  gf_labs(title="PC1 and PC2 of dune data (quadrat numbers)") %>% 
+  gf_lims(x = c(-2,2.85), y=c(-2.4, 2.2))
+
+# Display plant species PCA scores for axes 1 and 2
+ordi_plot(dune_pca, layers="species", geom="text") %>% 
+  gf_labs(title="PC1 and PC2 of dune data showing species codes") %>% 
+  gf_lims(x = c(-2,2.85), y=c(-2.4, 2.2))
+```
+
+Note that in the above code, for the two separate plots we've added a title using
+the `gf_labs()` function, and also set the x- and y-axis limits via `gf_lims()`
+to ensure they are on the same scale. This last step is optional: sometimes it
+is useful to omit. By default, as we have numerous quadrats, these will show as
+points. I've added `geom="text"` to ensure quadrat numbers and species names are
+displayed (other option is to display as `"point"`).
+
+### Quick interpretation of the plots
+Even from these simple plots you can answer some questions. See if you can work
+them out:
+
+```{r simple_pca_interpret}
+question("Study the PCA plots for sites and species, and tick the true answers",
+         answer("Lolium perenne (Lolipere) and Agrostis stolonifera (Agrostol)
+                were rarely found together", correct=TRUE),
+         answer("Quadrat numbers 10, 7 and 5 have similar species composition",
+                correct=TRUE),
+         answer("Quadrats 18, 9 and 4 have similar species composition"),
+         answer("Poa trivialis (Poatriv) is most abundant in quadrats 2, 3, 4 and 9",
+                correct = TRUE),
+         answer("Alopecuris geniculatus (Alopgeni) is most abundant in quadrats
+                18, 17 and 19"),
+         answer("Species clustered round both 0 on PC1 and 0 on PC2 at the
+                centre of the plot are fairly ubiquitous across all quadrats",
+                correct = TRUE)
+         )
+```
+
+Hopefully you can see that species close together in the ordination graphs
+tend to co-occur, and are found mainly in the quadrats in that part of the graph.
+In PCA plots you will often get a mass of overlapping species in the centre of
+the plot, along the zero-zero lines: these tend to be fairly widespread and
+ubiquitous species, not characteristic of any particular sites.
+
+**Note**
+When you repeat this exercise in RStudio yourself, you will interactively add
+the labels for the quadrats or species with code such as:
+
+```
+dune_plt <- ordi_plot(dune_pca, layers="species", geom="point")
+dune_plt
+ordi_identify(dune_plt)
+```
+The last line with `ordi_identify()` sets your mouse pointer to interactive mode
+to select which points to add a label to.
+
+
+## Relate PCA to explanatory variables
+### What do the PCA axes mean?
+For most people (myself included!) one of the confusing things about PCA and
+other ordination techniques is that the PCA axes do not have any units, and
+you are left wondering what they really 'mean'. In essence, that is up to you to
+find out, by trying to relate them to potential explanatory data. Typically you
+only need to look at the first ordination axis (PC1) as this captures most of
+the variation, but rarely you may want to look at PC2 as well.
+
+### Environmental data for the sand dune vegetation
+We have some environmental data for the sand dune survey stored in a `data.frame`
+called `dune.env`. Examine the data in the box below:
+
+```{r check_env, exercise=TRUE}
+
+```
+```{r check_env-solution}
+summary(dune.env)
+head(dune.env)
+nrow(dune.env)
+ncol(dune.env)
+```
+
+Notice that the `dune.env` dataset has the same number of rows as `dune`, i.e.
+one entry for each quadrat sample. It does not need to have the same number
+of columns. The particular variables in the `dune.env` dataset are:
+
+* A1 = thickness of soil A1 horizon
+* Moisture = ordered factor 1, 2, 4, 5
+* Management = factor where BF (biological farming), HF (hobby farming), NM (nature
+conservation management), SF (standard farm management)
+* Use = ordered factor with levels Hayfield < Haypastu < Pasture
+* Manure = ordered factor 0 to 4
+
+Let's look at the relationship between Moisture and the PC1 scores. You can
+extract the scores from your `dune_pca` object using the `scores()` function, so
+to get the site (quadrat or sample) scores, use `scores(dune_pca, display="sites", choice=1)`.
+The `choice=1` indicates to just extract the PC1 scores. Use this command, storing
+the results in `dune_pc1` and create a boxplot against `Moisture` using `gf_boxplot()`:
+
+```{r dune_moisture_boxplot-setup}
+dune_pca <- rda(dune)
+```
+```{r dune_moisture_boxplot, exercise=TRUE}
+
+```
+```{r dune_moisture_boxplot-solution}
+# Extract the PC1 site scores
+dune_pc1 <- scores(dune_pca, display="sites", choices = 1)
+
+# Create boxplot
+gf_boxplot(dune_pc1 ~ Moisture, data=dune.env)
+```
+
+So, you can conclude that when PC1 is **high** the soil moisture content is also
+relatively **high**. Now go back to your plot of the species on PC1 and PC2.
+
+```{r which_spp_like_moisture}
+question("Which species are particularly associated with wetter soils?",
+         answer("Lolium perenne (Lolipere)"),
+         answer("Poa trivialis (Poatriv)"),
+         answer("Poa pratense (Poaprat)"),
+         answer("Elymus repens (Elymrepe)"),
+         answer("Plantago lanceolata (Planlanc)"),
+         answer("Eleocharis palustris (Eleopalu)", correct = TRUE),
+         answer("Agrostis stolonifera (Agrostol)", correct = TRUE),
+         random_answer_order = TRUE
+        )
+```
+
+In the same way that you have produced a graph for your Moisture, investigate
+the other environmental variables against PC1. Remember, depth of the soil A1
+horizon is continuous, therefore `gf_point()` is a more appropriate function.
+
+```{r check_other_variables-setup}
+dune_pca <- rda(dune)
+dune_pc1 <- scores(dune_pca, display="sites", choices=1)
+```
+```{r check_other_variables, exercise=TRUE}
+
+```
+```{r check_other_variables-solution}
+gf_point(dune_pc1 ~ A1, data=dune.env)
+gf_boxplot(dune_pc1 ~ Management, data=dune.env)
+gf_boxplot(dune_pc1 ~ Use, data=dune.env)
+gf_boxplot(dune_pc1 ~ Manure, data=dune.env)
+```
+
+Which variables seem to have little relationship with PC1, which ones appear to
+go in different directions. If you have time, try and extract PC2 scores and see
+how they relate to the environment.
+
+**Key points**
+
+* Ordination methods provide a convenient way of summarising as much variation in
+your raw data into one or two new variables.
+* Samples close together on these axes will tend to have similar attributes
+* It is up to you to try and understand what these axes represent by interpreting
+them in relation to environmental data or laboratory experimental treatments.
+
+
+## CA and NMDS
+### What can go wrong with PCA?
+Sometimes the characteristics of your original data can cause problems for PCA,
+for example nearly all the samples squashed to one side of the plot, with a couple
+at the other extreme. This can arise when there are a couple of 'outlier' samples
+with an unusual composition of attributes. Sometimes this can be corrected by
+standardising your data before analysis:
+
+`mydata_std <- decostand(mydata_raw, method="standardize")`
+
+which standardises all the attributes to have zero mean and unit (1.0) standard
+deviation. Other standardisation methods are available in the `decostand()`
+function, and the `"hellinger"` option can also be quite useful. See `?decostand`
+for the help pages.
+
+Another problem is more subtle, and is known as the **arch** or **horseshoe**
+effect. It seems to be a particular problem for both ecological and gene sequencing
+data. This is when the differences in the composition of the samples is so extreme
+that PCA starts to pull the ends of the ordination together, forming an arch. Often
+**unimodal methods** (see earlier) such as CA or NMDS can correct this problem.
+
+### Arch effect example
+The following exercise uses data from Vare *et al* (1995) who studied the effects
+of reindeer grazing in Scandinavia on the vegetation in pine forests.
+
+![](images/reindeer.jpg)
+
+The data consist of cover estimates of 44 species of plants (attributes, in columns)
+at 24 survey sites. You can read the study <a href="www/JVG1995.pdf" target="_blank">here</a>
+If you look at the paper you'll notice that they used NMDS to analyse their data.
+What goes wrong with PCA? Try it now, in the exercise box below; the data are
+stored in the data.frame `varespec`:
+
+```{r arch_effect, exercise=TRUE}
+
+```
+```{r arch_effect-solution}
+# Create the PCA
+varespec_pca <- ordi_pca(varespec)
+
+# Check variation explained; if using RStudio just enter summary(varespec_pca)
+summary(varespec_pca)[["cont"]][["importance"]]
+
+# Plot PC1 and PC2 of the samples
+ordi_plot(varespec_pca, layers="sites", geom="text") 
+
+# Plot PC1 and PC2 of the species
+ordi_plot(varespec_pca, layers="species", geom="text") 
+```
+
+You can see that the amount of variation explained by PC1 and PC2 is high, at
+53.8% and 25.4%, so together they explain almost 80% of the variation. This very
+high explained variation on just a couple of axes is sometimes the cause of an
+arch effect, which you can clearly see in the resultant ordination plot. Notice 
+too that in the species plot, nearly all of them are squashed together at the
+centre, with just 4 outlier species. **Note** in the solution to the code above
+I have added `geom="text"` for the sites plot, to force display as text rather
+than simply points, although sometimes species plots default to text.
+
+### Correspondence analysis (CA)
+Let's repeat the analysis using correspondence analysis, which assumes a **unimodal**
+relationship of the attributes (here these are species) and the derived ordination
+axes. To undertake a correspondence analysis, use the `ordi_ca()` function instead
+of the `ordi_pca()` function.
+
+```{r ca, exercise=TRUE}
+
+```
+```{r ca-solution}
+# Create the CA
+varespec_ca <- ordi_ca(varespec)
+
+# Check variation explained; if using RStudio just enter summary(varespec_pca)
+summary(varespec_ca)[["cont"]][["importance"]]
+
+# Plot CA1 and CA2 of the samples
+ordi_plot(varespec_ca, layers="sites", geom="text") 
+
+# Plot CA1 and CA2 of the species
+ordi_plot(varespec_ca, layers="species", geom="text") 
+```
+
+The total amount of variation explained by the first two axes is much less, at
+25.2% and 17.1% respectively for CA1 and CA2, explaining 42.2% in total (see the
+lines labelled `Proportion Explained` and `Cumulative Proportion`). However, the
+graphs for both the sites and species are much easier to understand, and the arch
+effect has been removed.
+
+### Non-metric multidimensional scaling (NMDS)
+Recall that NMDS uses a somewhat different approach to creating the ordination,
+as it is concerned with the relative rankings of your sites along each axis, rather
+than absolute multi-dimensional distances. It determines these rankings from
+pairwise similarity scores between each pair of samples in turn, and analysing
+the resultant table (which is triangular, rather like the distances between cities
+tables you sometimes find in road atlases). The `ord_nmds()` function by default
+uses the **Bray-Curtis** similarity measure which is robust for most data. The
+algorithm has to run multiple times to find the best solution. If needed, it
+will automatically standardise your data by either square-root and/or 'Wisconsin'
+standardisation. You may see this displayed in the output as the model runs.
+
+**Note**
+
+* Use the `print()` rather than `summary()` function to look at the output.
+* NMDS does not provide you with % variation explained on each axis. Instead it
+provides an overall "stress" level, where the lower the stress, the better.
+
+```{r metaNMDS, exercise=TRUE}
+# Create the NMDS
+varespec_nmds <- ordi_nmds(varespec)
+
+# Check the output
+print(varespec_nmds)
+
+# Plot the NMDS sample (site) and attribute (species) scores
+ordi_plot(varespec_nmds, layers="sites", geom="text")
+ordi_plot(varespec_nmds, layers="species", geom="text")
+```
+
+NMDS is considered to be the most robust unconstrained ordination method for
+many biologists. See the paper by Minchin (1987) <a href="www/Minchin.pdf" target="_blank">here</a>  The `ordi_nmds()` function in the `bio2020` package is
+ a simple wrapper for `vegan` package's `metaNMDS()` function. It combines
+all of Minchin's recommendations into a single command.
