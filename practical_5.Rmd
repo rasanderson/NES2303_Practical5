@@ -2,10 +2,10 @@
 title: 'Practical 5: Unconstrained Ordination'
 subtitle: "BIO2020 Statistics and experimental design"
 output:
+  html_document: default
+  pdf_document: 
   word_document:
      reference_docx: template.docx
-  pdf_document: 
-  html_document: default
 ---
 
 
