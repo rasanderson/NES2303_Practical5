@@ -1,6 +1,6 @@
 ---
 title: 'Practical 5: Unconstrained Ordination'
-subtitle: "BIO2020 Statistics and experimental design"
+subtitle: "NES2303 Statistics and experimental design"
 output:
   html_document: default
   pdf_document: 
@@ -10,7 +10,6 @@ output:
 
 
 ```{r setup, include=FALSE}
-library(bio2020)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -43,16 +42,17 @@ The main aims of this practical are to learn more on the use, interpretation and
 You are strongly recommended to study [this interactive website](https://naturalandenvironmentalscience.shinyapps.io/Unconstrained/) before beginning the practical. We will use the same data as on the website, but we have swapped them round in the analyses, to keep you thinking!
 
 ## Setting up for the practical  
-First, go to Canvas and download the **dune.csv** data set and save it to your `Data` folder within your BIO2020 project folder. Now navigate to your BIO2020 folder and open up your existing project for this course in RStudio, as you have done in previous practicals. On the main RStudio menu, click on **File -> New File -> R script** and save it to your current working directory (the location of your Bio2020 project) as **Practical_5.R** 
+First, go to Canvas and download the **dune.csv** data set and save it to your `Data` folder within your NES2303 project folder. Now navigate to your NES2303 folder and open up your existing project for this course in RStudio, as you have done in previous practicals. On the main RStudio menu, click on **File -> New File -> R script** and save it to your current working directory (the location of your Bio2020 project) as **Practical_5.R** 
 
 ## Installing and Loading Packages
-Practicals 5 and 6 make use of both the `vegan` and `bio2020` R packages. Hopefully you have already installed these. The `vegan` package was originally written for vegetation analysis, but is now used in microbiology, phylogenetics, animal ecology etc. There is plenty of online material about the package, but if using Google to search for it, please search for 'R vegan multivariate' rather than just 'vegan' otherwise Google will return food recipes!
+Practicals 5 and 6 make use of both the `mosaic` and `vegan` R packages. Hopefully you have already installed these. The `vegan` package was originally written for vegetation analysis, but is now used in microbiology, phylogenetics, animal ecology etc. There is plenty of online material about the package, but if using Google to search for it, please search for 'R vegan multivariate' rather than just 'vegan' otherwise Google will return food recipes!
 
-If you have not already done so, please install the `bio2020` package; this provides easier access to analytical functions, and better graphics, than the standard `vegan` functions. Remember that you have to set your R session to look in the correct folder (e.g. Downloads) to install the packages. There is extensive information on how to install the package, including troubleshooting for Safari on MacBooks, at Canvas [on this page](https://ncl.instructure.com/courses/23926/pages/3-install-additional-r-packages) . The `bio2020` package automatically activates the `vegan` package.
+Begin by activating the `mosaic` and `vegan` packages. If you get an error for 
+`vegan` then run `install.packages("vegan")` to complete its installation.
 
-Load the **bio2020** package as you have done in previous sessions.    
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
-library(bio2020)
+library(mosaic)
+library(vegan)
 ```
 
 ## Example datasets for analysis  
@@ -107,12 +107,18 @@ View(varespec)
 
 # 1. Principal Components Analysis
 ## 1.1 PCA analysis and summary of results
-For the purpose of clarity the wrapper function **ordi_pca()** in the package **bio2020** will be used in this practical. A typical PCA in R has this format: **ordi_pca(data)**
+Principal components analysis (PCA) is a linear method in that it assumes the 
+relationships between your species and, e.g. environment, might be relatively
+short giving straight lines:
+
+```{r, echo=FALSE}
+knitr::include_graphics("images/linear.png", dpi = NA)
+```
 
 In the [online tutorial](https://naturalandenvironmentalscience.shinyapps.io/Unconstrained/) you saw how the arch or horseshoe effect can be a problem with ecological or gene sequencing data. Although **unimodal methods** are a good alternative, you can implement transformations using the **decostand()** function. Here, we use **scale = TRUE** to give the data **unit variance**, and the **hellinger** transformation, which works well with environmental and species data.
 
 ```{r}
-varespec_pca <- ordi_pca(decostand(varespec, method = "hellinger"), scale = TRUE)
+varespec_pca <- rda(decostand(varespec, method = "hellinger"), scale = TRUE)
 varespec_pca
 
 ```
@@ -144,47 +150,41 @@ Output explained:
 The lines I find most useful to focus on are the Proportion explained, and Cumulative proportion. PCA tries to "squash" all the original data from 24 dimensions (we have 24 columns or species) into 2 dimensions. Why? You cannot plot a 24 dimensional graph (or if you know how to do so, please apply for a Nobel Prize!). But you can plot a 2 dimensional graph. So if you can squash as much of the 'information' in your original table of data into 2 new variables that summarise your species that makes life easier.
 
 ## 1.2 Visualise your PCA results
-In general we are only interested in PC1 and PC2. Very rarely, there might be useful information in PC3 so you may want to check it, although in my experience it is usually of little value. Generally, the first two axes tend to explain the majority of the variation, so these are usually plotted. We will use the `ordi_plot()` function from the `bio2020` package:
+In general we are only interested in PC1 and PC2. Very rarely, there might be useful information in PC3 so you may want to check it, although in my experience it is usually of little value. Generally, the first two axes tend to explain the majority of the variation, so these are usually plotted.
+Plotting is done with `base R` and `vegan`, which unfortunately gives relatively
+poor-quality graphs. A new package called `ggvegan` is under development at
+(https://github.com/gavinsimpson/ggvegan)[https://github.com/gavinsimpson/ggvegan] 
+which you can try and install if you wish, but is unsupported.
+
+When plotting with `base R` it is best to create a blank "canvas" then add the
+text for sites or species separately, adjusting the font size with the `cex` option:
 
 ```{r}
-# both sites and species
-ordi_plot(varespec_pca, geom = "text")
+# Plot site numbers
+plot(varespec_pca, type = "n") # blank canvas
+text(varespec_pca, display = "sites", cex = 0.7)
 
-# just sites; note how you control x and y axis limits
-ordi_plot(varespec_pca, layers="sites", geom="text") %>% 
-  gf_labs(title="PC1 and PC2 of varespec data showing sites") %>% 
-  gf_lims(x = c(-2.5, 5), y=c(-3, 4)) # optional
-
-# just species
-ordi_plot(varespec_pca, layers="species", geom="text") %>% 
-  gf_labs(title="PC1 and PC2 of varespec data showing species codes") %>% 
-  gf_lims(x = c(-0.7, 0.8), y=c(-0.45, 0.7))
+# Plot species
+plot(varespec_pca, type = "n") # blank canvas
+text(varespec_pca, display = "species", cex = 0.7)
 
 ```
+
+The default plotting limits for the graphs are a bit too big, especially for the
+species making them hard to read. You can replot the species on more sensible
+limits with:
+
+```{r}
+plot(varespec_pca, type = "n", xlim=c(-1.75, 1.75), ylim = c(-0.75, 0.75))
+text(varespec_pca, display = "species", cex = 0.7)
+```
+
 
 When this dataset was analysed [initial on the interactive website with PCA](https://naturalandenvironmentalscience.shinyapps.io/Unconstrained/#section-ca-and-nmds) it suffered from a severe 'arch effect'. You will notice we do not have an arch effect now, even though we are still using PCA. This is because we used `decostand()` to standardise our data, and reduce the effects of outliers. Overall PC1 and PC2 explain less variation than before but the arch effect has been removed so the graph is easier to understand.
 
-Species that are close together tend to co-occur at particular sites, and sites that are close together have similar species composition. Species that are close to the zero-zero lines are more common across all sites. You will notice that due to clustering it is difficult to make some species/sites, so you can use **ordi_identify()** to pick out the interesting ones.
-
-After you enter the `ordi_identify()` command you will see the text
-
-`"Click on plot to label points; hit Esc key to exit"`
-
-displayed in the Console:
-
-```{r echo=TRUE, include=TRUE, results = 'hide', eval=FALSE}
-# Create the species plot, but only use points, not text labels
-# store the species plot in varespec_plt
-varespec_plt <- ordi_plot(varespec_pca, layers="species", geom="point")
-
-# Displays the species plot onscreen
-varespec_plt
-
-# Use mouse to identify individual species. Hit Esc to exit
-ordi_identify(varespec_plt)
-```
-
-The `ordi_identify()` function is still under development so may not detect every point. In the Console, type `?ordi_identify` to see more examples
+Species that are close together tend to co-occur at particular sites, and sites that are close together have similar species composition. Species that are close to the zero-zero lines are more common across all sites.
+These ubiquitous species tend to be less useful when interpreting the graphs, so
+focus on the ones around the edges of the plots.
 
 ## 1.3 Relate PCA to explanatory variables
 In unconstrained methods you undertake the ordination analysis first, and then relate your results back to any explanatory variables later. First, you need to obtain the sample PC scores used in your earlier plot. These are `choices = 1` for PC1 (x-axis in PC1 v PC2 plot) or `choices = 2` for PC2.
@@ -206,12 +206,18 @@ Think about how the PC1 scores relate to the environment, and try the same with 
 
 # 2. Correspondence Analysis
 ## 2.1 CA analysis and summary of results
-The wrapper function **ordi_ca()** in the package **bio2020** will be used in this practical. A typical PCA in R has this format: **ordi_ca(data)**
-
-Correspondence analysis is a weighted form of PCA that can fit non-linear responses. The weighting means the analysis is on the relative composition instead of absolute values. It is similar to PCA in that species that are close together tend to co-occur, and sites that are close together tend to have similar species composition.
+Correspondence analysis is a weighted form of PCA that can fit non-linear responses. The weighting means the analysis is on the relative composition instead of absolute values. It is similar to PCA in that species that are close together tend to co-occur, and sites that are close together tend to have similar species composition. However, it assumes a greater 'turnover' of your species along an environmental gradient
+so that there abundance results in a series of curves rather than straight lines:
 
 ```{r}
-dune_ca <- ordi_ca(dune)
+knitr::include_graphics("images/unimodal.png", dpi = FALSE)
+```
+
+When you use the `cca()` function with only your data.frame of species x sites
+then it defaults to correspondence analysis:
+
+```{r}
+dune_ca <- cca(dune)
 dune_ca
 ```
 
@@ -244,45 +250,27 @@ Visualisation is very similar to that for PCA, and is most easily accessed via `
 
 ```{r}
 # All the rows (sites or samples)
-ordi_plot(dune_ca, layers = "sites", geom = "text") %>% 
-  gf_lims(x = c(-4, 6), y=c(-3, 9))
+plot(dune_ca, type = "n")
+text(dune_ca, display = "sites", cex = 0.7)
 
 # All the columns (species or attributes)
-ordi_plot(dune_ca, layers = "species", geom = "text") %>% 
-  gf_lims(x = c(-2, 4), y=c(-2, 6))
+plot(dune_ca, type = "n")
+text(dune_ca, display = "species", cex = 0.7)
 ```
-
-Again, the species or attribute plot can get very cluttered depending on your dataset, so you might find it easier to label individual points using `ordi_identify()`:
-
-```{r echo=TRUE, include=TRUE, results = 'hide'}
-# Create the species plot, but only use points, not text labels
-# store the species plot in dune_plt
-dune_plt <- ordi_plot(dune_ca, layers="species", geom="point")
-
-# Displays the species plot onscreen
-dune_plt
-
-# Use mouse to identify individual species. Hit Esc to exit
-ordi_identify(dune_plt)
-```
-
-If you have time, try plotting axes 1 and 3, CA1 vs CA3, using `axes = c(1,3)` as an option to `ordi_plot()`.
 
 # 3. Non-metric Multidimensional Scaling 
 ## 3.1 NMDS background and analysis
-NMDS creates the ordination using the rank order of your sites along each axis, rather than absolute multi-dimensional distances. NMDS only makes sure that the points further apart are still further apart in NMDS space than the “closer together” points, so it does not preserve the actual distance. It determines these rankings from pairwise similarity scores between each pair of samples in turn, and analysing the resultant table. The **ordi_nmds()** function by default uses the Bray-Curtis similarity measure which is robust for most data. The algorithm has to run multiple times to find the best solution. If needed, it will automatically standardise your data by either square-root and/or ‘Wisconsin’ standardisation, which standardises species to equal maxima and sites to equal totals. You may see this displayed in the output as the model runs.
-
-The wrapper function **ordi_nmds()** in the package **bio2020** will be used in this practical. A typical PCA in R has this format: **ordi_nmds(data)**
+NMDS creates the ordination using the rank order of your sites along each axis, rather than absolute multi-dimensional distances. NMDS only makes sure that the points further apart are still further apart in NMDS space than the “closer together” points, so it does not preserve the actual distance. It determines these rankings from pairwise similarity scores between each pair of samples in turn, and analysing the resultant table. The `metaMDS()` function by default uses the Bray-Curtis similarity measure which is robust for most data. The algorithm has to run multiple times to find the best solution. If needed, it will automatically standardise your data by either square-root and/or ‘Wisconsin’ standardisation, which standardises species to equal maxima and sites to equal totals. You may see this displayed in the output as the model runs.
 
 ```{r}
-dune_nmds <- ordi_nmds(dune)
+dune_nmds <- metaMDS(dune)
 ```
 
 Output explained:
 
 NMDS uses many random starts (20 each time) and looks for the fits with the lowest stress. It will only conclude that a solution has been reached when the solutions with the lowest stress are similar. It also fits the NMDS for 1,2,3...etc dimensions, and stops after a sudden drop in stress is observed. Sometimes the NMDS cannot find a solution on the first try like it has here (you will get back **no convergent solutions**), which is why we've saved the output as the object **dune_nmds**. To run the NMDS on the same data again: 
 
-dune_nmds_2 <- ordi_nmds(dune, previous.best = dune_nmds)
+`dune_nmds_2 <- metaMDS(dune, previous.best = dune_nmds)`
 
 The **previous.best** argument passes in a previous fit of NMDS and will run another 20 random starts (making the total number of random starts 40). However, you do not need to run this on the dune dataset as we have already found a convergent solution. 
 
@@ -301,25 +289,32 @@ Output explained:
 - **Two convergent solutions found after 20 tries** - the NMDS did 20 random starts and found 2 solutions that were very similar to one another. If you ran the NMDS twice, it would say **...after 40 tries** here.
 
 ## 3.2 Visualise your NMDS results
-Again you can use the `ordi_plot()` function to visualise the results. I usually find it easier to  plot the samples and species separately, and compare the two graphs.
+Again you can use the `plot()` and `text()` functions to visualise the results. I usually find it easier to  plot the samples and species separately, and compare the two graphs.
 
 ```{r}
 # Plot the NMDS sample (site) and attribute (species) scores
-ordi_plot(dune_nmds, layers="sites", geom="text")
-ordi_plot(dune_nmds, layers="species", geom="text")
+plot(dune_nmds, type = "n")
+text(dune_nmds, display = "sites", cex = 0.7)
+
+plot(dune_nmds, type = "n")
+text(dune_nmds, display="species", cex = 0.7)
 ```
 
-If you wish to compare two graphs side-by-side, use the `multi_plot()` function from the `bio2020` package (type `?multi_plot` in the Console for help):
+Sometimes it is easier to view two plots side-by-side. You can do this with the
+`par()` function, controlling the numbers of rows and columns in the plotting
+window:
 
 ```{r}
-# Plot the NMDS sample (site) and attribute (species) scores but this
-# time store the plots
-dune_nmds_sites_plt <- ordi_plot(dune_nmds, layers="sites", geom="text")
-dune_nmds_spp_plt   <- ordi_plot(dune_nmds, layers="species", geom="text")
+par(mfcol = c(1, 2)) # 1 row, 2 columns
+# Plot the NMDS sample (site) and attribute (species) scores
+plot(dune_nmds, type = "n")
+text(dune_nmds, display = "sites", cex = 0.7)
 
-# Use multi_plot to display side by side
-multi_plot(dune_nmds_sites_plt, dune_nmds_spp_plt, cols=2)
+plot(dune_nmds, type = "n")
+text(dune_nmds, display="species", cex = 0.7)
+par(mfcol = c(1, 1)) # Reset back to default of 1 row 1 column
 ```
+
 
 Comparing between plots makes it easier to understand relationships. For example from these plots I can see that the species Elymrepe and Cirsarve are probably most common at site 1. Species Airaprae, Empenigr and Hyporadi are probably commonly found together. They are particularly characteristic of sites 17 and 19 which also have high NMDS2 scores.
 
