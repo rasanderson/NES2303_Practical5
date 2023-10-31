@@ -8,7 +8,7 @@ runtime: shiny_prerendered
 library(learnr)
 library(mosaic)
 library(vegan)
-library(bio2020)
+#library(bio2020)
 dune <- read.csv("www/dune.csv", row.names=1)
 data(dune.env)
 data(varespec)
@@ -198,22 +198,27 @@ data are extremely messy and difficult to interpret by PCA or CA.
 Let's analyse the dune data with PCA. The `vegan` package provides access to many
 advanced multivariate methods. It has the `rda()` function, which when used with
 only a response variable provides PCA, and if used with both response and
-explanatory variables it automatically uses constrained analysis. This can be a 
-little confusing for beginners, so in the `bio2020` I have created a wrapper
-function called `ordi_pca()` to make it clearer when you are using PCA. Remember
-that in both constrained and unconstrained analyses the "response variable" is
+explanatory variables it automatically uses constrained analysis, RDA. This can be a 
+little confusing for beginners. The "response variable" is
 actually your `data.frame` containing lots of variables. The `summary()` function
 on your ordination output produces lots of output (most of which you do not need
 to study), so for this website I'm going to limit amount of output. When you run
 it interactively in RStudio, you'll have to scroll up a bit to see the next few lines.
 
 
-```{r dune_pca, echo=TRUE}
+```{r dune_pca1, echo=FALSE, eval=TRUE}
 # Undertake the PCA ordination
-dune_pca <- ordi_pca(dune)
+dune_pca <- rda(dune)
 
 # First part of summary: importance of derived variables
 summary(dune_pca)[["cont"]][["importance"]]
+```
+```{r dune_pca2, echo=TRUE, eval=FALSE}
+# Undertake the PCA ordination
+dune_pca <- rda(dune)
+
+# First part of summary: importance of derived variables
+summary(dune_pca)
 ```
 
 Creating the PCA is very simple. In a PCA you try to "squash" as much of the
@@ -234,44 +239,27 @@ so usually you only look at PC1 and PC2.
 PC1 and PC2 are created for both the attributes and samples, and the easiest way
 to study them is via two graphs, that should be interpreted together. You can
 display the results using the default `plot()` command, but the graphs are 
-usually very cluttered and difficult to read. The `bio2020` package contains an
-`ordi_plot()` function which is easier to use, and broadly similar to the methods
-you have already used for graphs. However, for best results it should be used
-interactively, with the `ordi_identify()` function that I've written for you. This
-can't be demonstrated on this website, so the graphs here will look a bit cluttered.
-When you practice these exercises for yourself, you can use the `ordi_identify()`
-function to obtain nicer graphs.
+usually very cluttered and difficult to read. So we plot a blank 'canvas' first
+and then add either the quadrats or species to make it easier to view.
 
 The following code displays the species scores and site scores. Remember that
 depending on your experimental data, these might be OTUs and isolates respectively.
-The `ordi_plot()` function by default puts both sites and species on the same
-graph, but this can be difficult to interpret, hence the code below also shows
-you how to display the sites and species separately. You can 'fine-tune' your
-plot, by "piping" the commands into the usual range of `gf_` functions that you
-have already used. This can be useful if you want to set titles, or axis limits.
-Setting axis limits can sometimes make it easier to relate species and samples.
 
 ```{r plot_dune, echo=TRUE}
-# Display both on the same plot
-ordi_plot(dune_pca, geom="text")
+# Plot of sites (or quadrats, isolates etc. Rows in your data.frame)
+plot(dune_pca, type = "n") # Setup blank canvas
+text(dune_pca, display = "sites", cex = 0.7) # cex controls font size
 
-# Display quadrat PCA scores for axes 1 and 2
-ordi_plot(dune_pca, layers="sites", geom="text") %>% 
-  gf_labs(title="PC1 and PC2 of dune data (quadrat numbers)") %>% 
-  gf_lims(x = c(-2,2.85), y=c(-2.4, 2.2))
-
-# Display plant species PCA scores for axes 1 and 2
-ordi_plot(dune_pca, layers="species", geom="text") %>% 
-  gf_labs(title="PC1 and PC2 of dune data showing species codes") %>% 
-  gf_lims(x = c(-2,2.85), y=c(-2.4, 2.2))
+# Plot of species (or OTUs, genes etc. Columns in your data.frame)
+plot(dune_pca, type = "n") # Setup blank canvas
+text(dune_pca, display = "species", cex = 0.7) # cex controls font size
 ```
 
-Note that in the above code, for the two separate plots we've added a title using
-the `gf_labs()` function, and also set the x- and y-axis limits via `gf_lims()`
-to ensure they are on the same scale. This last step is optional: sometimes it
-is useful to omit. By default, as we have numerous quadrats, these will show as
-points. I've added `geom="text"` to ensure quadrat numbers and species names are
-displayed (other option is to display as `"point"`).
+The above uses the default R graphics functions which are rather limited in how
+they can be customised. A new graphics library for multivariate plots is under
+development at (https://github.com/gavinsimpson/ggvegan)[https://github.com/gavinsimpson/ggvegan]
+but this is still under development and its installation can be tricky. You are
+welcome to try it if you want but it is unsupported.
 
 ### Quick interpretation of the plots
 Even from these simple plots you can answer some questions. See if you can work
@@ -299,18 +287,6 @@ tend to co-occur, and are found mainly in the quadrats in that part of the graph
 In PCA plots you will often get a mass of overlapping species in the centre of
 the plot, along the zero-zero lines: these tend to be fairly widespread and
 ubiquitous species, not characteristic of any particular sites.
-
-**Note**
-When you repeat this exercise in RStudio yourself, you will interactively add
-the labels for the quadrats or species with code such as:
-
-```
-dune_plt <- ordi_plot(dune_pca, layers="species", geom="point")
-dune_plt
-ordi_identify(dune_plt)
-```
-The last line with `ordi_identify()` sets your mouse pointer to interactive mode
-to select which points to add a label to.
 
 
 ## Relate PCA to explanatory variables
@@ -452,16 +428,18 @@ stored in the data.frame `varespec`:
 ```
 ```{r arch_effect-solution}
 # Create the PCA
-varespec_pca <- ordi_pca(varespec)
+varespec_pca <- rda(varespec)
 
 # Check variation explained; if using RStudio just enter summary(varespec_pca)
 summary(varespec_pca)[["cont"]][["importance"]]
 
 # Plot PC1 and PC2 of the samples
-ordi_plot(varespec_pca, layers="sites", geom="text") 
+plot(varespec_pca, type = "n")
+text(varespec_pca, display = "sites", cex = 0.7) 
 
 # Plot PC1 and PC2 of the species
-ordi_plot(varespec_pca, layers="species", geom="text") 
+plot(varespec_pca, type = "n")
+text(varespec_pca, display = "species", cex = 0.7) 
 ```
 
 You can see that the amount of variation explained by PC1 and PC2 is high, at
@@ -469,31 +447,31 @@ You can see that the amount of variation explained by PC1 and PC2 is high, at
 high explained variation on just a couple of axes is sometimes the cause of an
 arch effect, which you can clearly see in the resultant ordination plot. Notice 
 too that in the species plot, nearly all of them are squashed together at the
-centre, with just 4 outlier species. **Note** in the solution to the code above
-I have added `geom="text"` for the sites plot, to force display as text rather
-than simply points, although sometimes species plots default to text.
+centre, with just 4 outlier species.
 
 ### Correspondence analysis (CA)
 Let's repeat the analysis using correspondence analysis, which assumes a **unimodal**
 relationship of the attributes (here these are species) and the derived ordination
-axes. To undertake a correspondence analysis, use the `ordi_ca()` function instead
-of the `ordi_pca()` function.
+axes. To undertake a correspondence analysis, use the `cca()` function instead
+of the `rda`()` function.
 
 ```{r ca, exercise=TRUE}
 
 ```
 ```{r ca-solution}
 # Create the CA
-varespec_ca <- ordi_ca(varespec)
+varespec_ca <- cca(varespec)
 
 # Check variation explained; if using RStudio just enter summary(varespec_pca)
 summary(varespec_ca)[["cont"]][["importance"]]
 
 # Plot CA1 and CA2 of the samples
-ordi_plot(varespec_ca, layers="sites", geom="text") 
+plot(varespec_ca, type = "n")
+text(varespec_ca, display = "sites", cex = 0.7) 
 
 # Plot CA1 and CA2 of the species
-ordi_plot(varespec_ca, layers="species", geom="text") 
+plot(varespec_ca, type = "n")
+text(varespec_ca, display = "species", cex = 0.7) 
 ```
 
 The total amount of variation explained by the first two axes is much less, at
@@ -508,7 +486,7 @@ as it is concerned with the relative rankings of your sites along each axis, rat
 than absolute multi-dimensional distances. It determines these rankings from
 pairwise similarity scores between each pair of samples in turn, and analysing
 the resultant table (which is triangular, rather like the distances between cities
-tables you sometimes find in road atlases). The `ord_nmds()` function by default
+tables you sometimes find in road atlases). The `metaMDS()` function by default
 uses the **Bray-Curtis** similarity measure which is robust for most data. The
 algorithm has to run multiple times to find the best solution. If needed, it
 will automatically standardise your data by either square-root and/or 'Wisconsin'
@@ -522,17 +500,31 @@ provides an overall "stress" level, where the lower the stress, the better.
 
 ```{r metaNMDS, exercise=TRUE}
 # Create the NMDS
-varespec_nmds <- ordi_nmds(varespec)
+varespec_nmds <- metaMDS(varespec)
 
 # Check the output
 print(varespec_nmds)
 
 # Plot the NMDS sample (site) and attribute (species) scores
-ordi_plot(varespec_nmds, layers="sites", geom="text")
-ordi_plot(varespec_nmds, layers="species", geom="text")
+plot(varespec_nmds, type = "n")
+text(varespec_nmds, display = "sites", cex = 0.7)
+plot(varespec_nmds, type = "n")
+text(varespec_nmds, display="species", cex = 0.7)
 ```
 
 NMDS is considered to be the most robust unconstrained ordination method for
-many biologists. See the paper by Minchin (1987) <a href="www/Minchin.pdf" target="_blank">here</a>  The `ordi_nmds()` function in the `bio2020` package is
- a simple wrapper for `vegan` package's `metaNMDS()` function. It combines
-all of Minchin's recommendations into a single command.
+many biologists. See the paper by Minchin (1987) <a href="www/Minchin.pdf" target="_blank">here</a>  The  `metaNMDS()` function combines all of Minchin's recommendations into a single command.
+
+## Summary
+Unconstrained ordination methods are used when you want to compare the relationships
+between rows and columns of your multi-variable table of results. Typically the
+rows will be sites, and the columns will be species, but remember that the
+methods are widely applied to molecular biology as well as field zoology. For
+example the [`phyloseq` package](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0061217) is built on `vegan` and extends its capabilities and graphics for microbial biology.
+
+The three common methods you will encounter are:
+
+* PCA - good for summarising data with "low turnover", especially gene regulation data
+* CA - good for unimodal data, with many zeros (sparse data) such as species surveys
+* NMDS - good for highly skewed data, where the values in some rows or columns in
+your input data.frame are a very different from the others.
