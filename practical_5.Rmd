@@ -315,6 +315,72 @@ text(dune_nmds, display="species", cex = 0.7)
 par(mfcol = c(1, 1)) # Reset back to default of 1 row 1 column
 ```
 
+## 3.3 Enhancing visualisations
+
+The ordination plots we have produced so far have plotted the species and site scores. We have established that the those species that are closer together in ordination space are more likely to be found together within a sample. Likewise when sites are found close together they will contain very similar species composition. However, the ordination plots that we have produced so far do not give us an indication if there are environmental factors which explain any groupings that we see within these plots.
+
+`vegan` has some additional functionality which allows us to add:
+
+* convex hulls: draws a line around the extreme points for a group of site scores to create a polygon
+* ellipses: attempts to draw an ellipse around the extreme points for a group of sites scores
+* spiders: draws lines from each site score to a group's centroid position
+
+We can have a look at these bay carrying on looking at the dune data set. if you haven't already done so make sure the `dune.env` data has been loaded into your environment. You should see it in the Environment section of the RStudio window. If not the `dune.env` data set comes built into `vegan` so you can use the `data()` command to load it. We need to use a combination of the ordination you have already done which contains the species and site scores and the `dune.env` data to start customising our plot to get more information ordination plot. As the `dune.env` dataset is built-in, it has it's own help page (simply type `?dune.env` into the Console window and hit the Enter key). We'll enhance our visualisations with the information in the `dune.env$Management` column:
+
+* **BF** Biological Farming
+* **HF** Hobby farming
+* **NM** Nature Conservation Management
+* **SF** Standard farming
+
+```{r}
+# load the data.env data set if you have not already done so
+data(dune.env)
+
+# plot the empty ordination first
+plot(dune_nmds, display = "sites", type = "n")
+
+# add the site scores and use the Management variable to colour the different 
+points(dune_nmds,display = "sites", cex = 0.7, col = dune.env$Management)
+
+# add the convex hull
+ordihull(dune_nmds, dune.env$Management, label = T, col = 1:4, lwd=1)
+
+```
+
+We can see that the site scores are actually forming some groups in the ordination plot. The Nature Farming and Hobby Farming appear to be most similar to each other, whereas the Nature Conservation Management and Standard Farming are quite far apart.
+
+We can also add other features to the ordination plot which can help with visualisation of the groupings. The first is an ellipse which is essentially a curved version of the convex hull. You will want to try and change the axes limits to fit in the whole ellipses.
+
+```{r}
+# plot the empty ordination first
+plot(dune_nmds, display = "sites", type = "n")
+
+# add the site scores and use the Management variable to colour the different 
+points(dune_nmds,display = "sites", cex = 0.7, col = dune.env$Management)
+
+# add the ellipse
+ordiellipse(dune_nmds, dune.env$Management, label = TRUE, kind = "ehull", col = 1:4, lwd=1)
+
+```
+
+In the examples so far, we have added colour to help visualise that different sites come from different management measures but we don't know which specific sites are related to each management measure. We can use a spiderplot to help understand this because it will identify which group each site score is assigned to and then indicate that points distance to the centroid (labelled with text). The centroid is the mean position of all the points on a surface. The spiderplot gives us an indication of how variable the scatter is for each of the site scores within a group.
+
+```{r}
+# plot the empty ordination first
+plot(dune_nmds, display = "sites", type = "n")
+
+# add the site scores and use the Management variable to colour the different 
+text(dune_nmds,display = "sites")
+
+# add the spider
+ordispider(dune_nmds, dune.env$Management, label = "TRUE", col = 1:4, lwd=1)
+
+```
+
+The different visualisation techniques allow us to see whether there are groupings in our data. The addition of environmental data which can help us explain these groups by incorporating that information into the visualisation helps to communicate those groupings to the reader. Thinking back to the stress value for the NMDS, how confident are you with the groupings that you see in the ordination plot and why?
+
+You can use some of these techniques with PCA and CA as well.
+
 
 Comparing between plots makes it easier to understand relationships. For example from these plots I can see that the species Elymrepe and Cirsarve are probably most common at site 1. Species Airaprae, Empenigr and Hyporadi are probably commonly found together. They are particularly characteristic of sites 17 and 19 which also have high NMDS2 scores.
 
