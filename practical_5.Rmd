@@ -33,42 +33,57 @@ Ordination is a way of arranging rows in your table (e.g. sites or samples) alon
 
 Unconstrained ordination is a useful tool for determining whether there is a relationship between multiple **response variables**. Through measuring the similarity in their **composition**, it is easier to compare samples. When the composition of samples is summarised on a continuous scale it is referred to as an **ordination**, whereas on a categorical scale it is known as **classification** or **clustering**.
 
+### Learning outcomes
 The main aims of this practical are to learn more on the use, interpretation and graphical visualisation of unconstrained ordination. Specific objectives are to learn how to use:
 
 1. Principal components analysis (PCA), a "linear" method
 2. Correspondence analysis (CA), a "unimodal" method
 3. Non-metric multidimensional scaling (NMDS), a "rank-based" method
 
+### Which method should I use?
+There are no hard-and-fast rules as to which method to use. You have to choose the method that provides the most **biologically meaningful** way to help you interpret your data. In my own experience, I've found that:
+
+* Sequencing / genetic / microbial data (e.g. samples x genes): PCA or NMDS
+* Ecological / zoological data (e.g. quadrats x species): NMDS, PCA or CA
+* Biochemical data (e.g. specimens x chemical profiles): PCA, NMDS
+
+However, these are just rough guidelines. When you collect your own data you will have to try several methods and select the one where you can interpret the output in a way that helps you understand the biology.
+
 You are strongly recommended to study [this interactive website](https://naturalandenvironmentalscience.shinyapps.io/Unconstrained/) before beginning the practical. We will use the same data as on the website, but we have swapped them round in the analyses, to keep you thinking!
 
-## Setting up for the practical  
-First, go to Canvas and download the **dune.csv** data set and save it to your `Data` folder within your NES2303 project folder. Now navigate to your NES2303 folder and open up your existing project for this course in RStudio, as you have done in previous practicals. On the main RStudio menu, click on **File -> New File -> R script** and save it to your current working directory (the location of your Bio2020 project) as **Practical_5.R** 
+## Setting up for the practical
+### Before you begin
+1. Start RStudio in the usual way. Open your `NES2303` project from the main menu by clicking on **File -> Open project...** and navigate to your NES2303 project file and open it. Check that the word "None" has been replaced by "NES2303" in the project listing at the top right of the RStudio window.
+2. From the main menu click "File -> New file -> R Script"
+3. Save your script, e.g. call it `practical5.R`
 
-## Installing and Loading Packages
+### Data for this practical
+Go to Canvas and download the **dune.csv** data set. Start up your "File Explorer" and move the file from your **Downloads** folder to either your **NES2303** folder, or your **NES2303/Data** folder depending on your preferences.
+
+### Initial lines in your script
 Practicals 5 and 6 make use of both the `mosaic` and `vegan` R packages. Hopefully you have already installed these. The `vegan` package was originally written for vegetation analysis, but is now used in microbiology, phylogenetics, animal ecology etc. There is plenty of online material about the package, but if using Google to search for it, please search for 'R vegan multivariate' rather than just 'vegan' otherwise Google will return food recipes!
 
-Begin by activating the `mosaic` and `vegan` packages. If you get an error for 
-`vegan` then run `install.packages("vegan")` to complete its installation.
+As usual, begin your script with a useful comment, and then load the `mosaic` and `vegan` packages, as shown below:
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Practical 5. Working with tables of biological data
+
+# Load up essential libraries before beginning
 library(mosaic)
 library(vegan)
+
 ```
 
-## Example datasets for analysis  
-Import the `dune.csv` file you downloaded at the very beginning of the practical into R using the `read.csv()` function. This practical assumes you have save your file in the `Data` subfolder:
+### Import data from .csv file or load example data into R 
+Now import the `dune.csv` into R. You are also going to access some example datasets via the `data()` function that are built-in to R's `vegan` package. Add the following code, plus suitable comments, to your `practical5.R` script. **Note**: The code below assumes you have a `Data` subfolder inside your `NES2303` folder. If you have stored your CSV files directly in your `NES2303` folder then omit the `Data/` from below.
 
 ```{r echo=TRUE,  message=FALSE, warning=FALSE}
-dune <- read.csv("Data/dune.csv", row.names=1)
+dune <- read.csv("Data/dune.csv", row.names=1) # Sand dune vegetation example
+data(varespec) # Tundra species dataset
+data(varechem) # Tundra biochemistry dataset
 ```
 
-Vegan has some in-built data files, let's load "varespec" and "varechem".
-```{r echo=TRUE,  message=FALSE, warning=FALSE}
-data(varespec)
-data(varechem)
-```
-
-These datasets are plant ecological ones, that are often used in online tutorials about the `vegan` package. Here each column is a species, and each row a sample. Your dataset would have the identical structure if dealing with e.g. genomic data, each column might indicate a sequence mutation insert or deletion, and each row a sample. For an example of how the `vegan` package has been extended to handle complex genetic data, including **operational taxonomic units** (OTUs), output from **mothur** and **QIIME** look at the excellent [phyloseq](https://joey711.github.io/phyloseq/) R package.
+The `dune` dataset is from a vegetation study of dune meadows, and the `varespec` is of the effects of reindeer grazing on tundra vegetation. All these datasets are plant ecological ones, that are often used in online tutorials about the `vegan` package: I've chosen them as you'll see them regularly if you search for online help. Each column is a species, and each row a sample. If you're interested in laboratory biology rather than ecology, don't worry!! Your dataset would have the identical structure if dealing with e.g. genomic data, each column might indicate a sequence mutation insert or deletion, and each row a sample. For an example of how the `vegan` package has been extended to handle complex genetic data, including **operational taxonomic units** (OTUs), output from **mothur** and **QIIME** look at the excellent [phyloseq](https://joey711.github.io/phyloseq/) R package.
  
 ## Summary Statistics 
 It is always good to start by observing the data and running some summary statistics.
@@ -123,11 +138,11 @@ varespec_pca
 
 ```
 
-Output explained:
+Terminology:
 
 - **Call** - This is a reminder of how you fitted the PCA.
 - **Inertia** - Total inertia is a measure of total variance.
-- **Unconstrained** - How many correlations have been explained by the ordination axes. In this case, there is one less than the number of variables.
+- **Unconstrained** - How many correlations have been explained by the ordination axes.
 - **Eigenvalues** - Measure of the amount of variance that is explained by each of the axes
 - **PC1** - The first axes, and will explain the largest amount of variation of all the axes.
 
@@ -144,10 +159,10 @@ Output explained:
 - The top 6 lines are the same as the PCA output
 - **Eigenvalues** are the amount of inertia (variance) explained by each axis. If added up for all 23 axes, it will be the same as the total inertia.
 - **Proportion explained** is the amount of total variance explained, and if added up for all 23 axes will equal 1.00. You can see that the proportion explained is highest for PC1, next highest for PC2 and so on. The last PC, PC23, explains virtually nothing.
-- **Cumulative proportion** is the cumulative total of the proportion of each axes. While **PC1** explains 0.5384 and **PC2** explains 0.2543 of the variance, their *cumulative* proportion is 0.7927 because it is the total amount of variance they explain together.
+- **Cumulative proportion** is the cumulative total of the proportion of each axes. While **PC1** explains `r data.frame(summary(varespec_pca)[[6]][[1]])[2,1]` and **PC2** explains `r data.frame(summary(varespec_pca)[[6]][[1]])[2,2]` of the variance, their *cumulative* proportion is `r data.frame(summary(varespec_pca)[[6]][[1]])[3,2]` or in other words, `r round(data.frame(summary(varespec_pca)[[6]][[1]])[3,2]*100,1)`%, because it is the total amount of variance they explain together.
 - **Species and Site scores** - the relative weight each species and/or site has within each axes.
 
-The lines I find most useful to focus on are the Proportion explained, and Cumulative proportion. PCA tries to "squash" all the original data from 24 dimensions (we have 24 columns or species) into 2 dimensions. Why? You cannot plot a 24 dimensional graph (or if you know how to do so, please apply for a Nobel Prize!). But you can plot a 2 dimensional graph. So if you can squash as much of the 'information' in your original table of data into 2 new variables that summarise your species that makes life easier.
+The lines I find most useful to focus on are the Proportion explained, and Cumulative proportion. PCA tries to "squash" all the original data from 24 dimensions into 2 dimensions. Why? You cannot plot a 24 dimensional graph (or if you know how to do so, please apply for a Nobel Prize!). But you can plot a 2 dimensional graph. So if you can squash as much of the 'information' in your original table of data into 2 new variables that summarise your species that makes life easier.
 
 ## 1.2 Visualise your PCA results
 In general we are only interested in PC1 and PC2. Very rarely, there might be useful information in PC3 so you may want to check it, although in my experience it is usually of little value. Generally, the first two axes tend to explain the majority of the variation, so these are usually plotted.
@@ -202,7 +217,7 @@ varespec_pc1 <- scores(varespec_pca, display="sites", choices = 1)
 gf_point(varespec_pc1 ~ pH, data=varechem) 
 ```
 
-Think about how the PC1 scores relate to the environment, and try the same with PC2, or with some of the other soil chemistry variables.
+Think about how the PC1 scores relate to the environment, and try the same with PC2, or with some of the other soil chemistry variables. Acid soild (low pH) are associated with slightly higher PC1 scores. Look at your species PCA plot: you can see that species such as Descflex (_Deschampsia flexuosa_) and Vaccviti (_Vaccinium vitilus_) have high PC1 scores, so you can probably infer that these are found on more acid soils.
 
 # 2. Correspondence Analysis
 ## 2.1 CA analysis and summary of results
@@ -240,7 +255,7 @@ Output explained (similar to PCA):
 - The top 6 lines are the same as the CA output
 - **Eigenvalues** are the amount of inertia (variance) explained by each axis. If added up for all 23 axes, it will be the same as the total inertia.
 - **Proportion explained** is the amount of total variance explained, and if added up for all 23 axes will equal 1.00.
-- **Cumulative proportion** is the cumulative total of the proportion of each axes. While **CA1** explains 0.2534 and **CA2** explains 0.1892 of the variance, their *cumulative* proportion is 0.4426 because it is the total amount of variance they explain together.
+- **Cumulative proportion** is the cumulative total of the proportion of each axes. While **CA1** explains `r data.frame(summary(dune_ca)[[6]][[1]])[2,1]` and **CA2** explains  `r data.frame(summary(dune_ca)[[6]][[1]])[2,2]` of the variance, their *cumulative* proportion is  `r data.frame(summary(dune_ca)[[6]][[1]])[3,2]` because it is the total amount of variance they explain together.
 - **Species and Site scores** - the relative weight each species and/or site has within each axes.
 
 You can see that whilst PCA and CA differ in their underlying philosophy (linear vs unimodel) the summary of the results of the analyses is similar in interpretation.
@@ -325,7 +340,7 @@ The ordination plots we have produced so far have plotted the species and site s
 * ellipses: attempts to draw an ellipse around the extreme points for a group of sites scores
 * spiders: draws lines from each site score to a group's centroid position
 
-We can have a look at these bay carrying on looking at the dune data set. if you haven't already done so make sure the `dune.env` data has been loaded into your environment. You should see it in the Environment section of the RStudio window. If not the `dune.env` data set comes built into `vegan` so you can use the `data()` command to load it. We need to use a combination of the ordination you have already done which contains the species and site scores and the `dune.env` data to start customising our plot to get more information ordination plot. As the `dune.env` dataset is built-in, it has it's own help page (simply type `?dune.env` into the Console window and hit the Enter key). We'll enhance our visualisations with the information in the `dune.env$Management` column:
+We can have a look at these bay carrying on looking at the dune data set, with some management data about the site. This is in the `dune.env` data set that comes built into `vegan` so you can use the `data()` command to load it. We need to use a combination of the ordination you have already done which contains the species and site scores and the `dune.env` data to start customising our plot to get more information ordination plot. As the `dune.env` dataset is built-in, it has it's own help page (simply type `?dune.env` into the Console window and hit the Enter key). We'll enhance our visualisations with the information in the `dune.env$Management` column:
 
 * **BF** Biological Farming
 * **HF** Hobby farming
@@ -333,7 +348,7 @@ We can have a look at these bay carrying on looking at the dune data set. if you
 * **SF** Standard farming
 
 ```{r}
-# load the data.env data set if you have not already done so
+# load the dune environmental example dataset, built-in to vegan
 data(dune.env)
 
 # plot the empty ordination first
@@ -382,7 +397,7 @@ The different visualisation techniques allow us to see whether there are groupin
 You can use some of these techniques with PCA and CA as well.
 
 
-Comparing between plots makes it easier to understand relationships. For example from these plots I can see that the species Elymrepe and Cirsarve are probably most common at site 1. Species Airaprae, Empenigr and Hyporadi are probably commonly found together. They are particularly characteristic of sites 17 and 19 which also have high NMDS2 scores.
+Comparing between sites ordination plots and species ordination plots makes it easier to understand relationships. For example from these plots I can see that the species Elymrepe and Cirsarve are probably most common at site 1. Species Airaprae, Empenigr and Hyporadi are probably commonly found together. They are particularly characteristic of sites 17 and 19 which also have high NMDS2 scores.
 
 # Summary
 Unconstrained methods provide useful ways of summarising tables of data from many different biological disciplines. They are worth considering if you have roughly 10 or more columns of data. This is particularly common in genomics and ecological studies, where multiple genes or species may be recorded for each sample or site. Doing lots of separate analyses on each column individually would be too time-consuming. These ordination methods also help you to identify **relationships** between variables, so that you can determine which samples (or sites) and which genes (or species) are most similar to each other.
